@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MetaVid Randomizer</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 2rem;
+      margin-bottom: 10px;
+    }
+
+    .header p {
+      opacity: 0.9;
+      font-size: 1rem;
+    }
+
+    .nav-tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      border-bottom: 2px solid #e0e0e0;
+    }
+
+    .nav-tab {
+      padding: 12px 24px;
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #666;
+      transition: all 0.3s ease;
+    }
+
+    .nav-tab:hover {
+      color: #667eea;
+    }
+
+    .nav-tab.active {
+      color: #667eea;
+      border-bottom-color: #667eea;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .content {
+      padding: 30px;
+    }
+
+    .upload-section {
+      border: 2px dashed #667eea;
+      border-radius: 12px;
+      padding: 40px;
+      text-align: center;
+      margin-bottom: 30px;
+      background: #f8f9ff;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .upload-section:hover {
+      border-color: #764ba2;
+      background: #f0f2ff;
+    }
+
+    .upload-section.dragover {
+      border-color: #764ba2;
+      background: #e8ebff;
+    }
+
+    .upload-icon {
+      font-size: 4rem;
+      margin-bottom: 20px;
+    }
+
+    .file-input {
+      display: none;
+    }
+
+    .btn {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 12px 30px;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: inline-block;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-secondary {
+      background: #6c757d;
+    }
+
+    .btn-success {
+      background: #28a745;
+    }
+
+    .selected-files {
+      margin-top: 20px;
+      text-align: left;
+    }
+
+    .file-item {
+      background: white;
+      padding: 10px 15px;
+      margin: 5px 0;
+      border-radius: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.9rem;
+    }
+
+    .toggle-section {
+      margin-bottom: 30px;
+    }
+
+    .toggle-section h3 {
+      margin-bottom: 15px;
+      color: #333;
+    }
+
+    .toggle-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 10px;
+    }
+
+    .toggle-item {
+      display: flex;
+      align-items: center;
+      padding: 10px;
+      background: #f8f9fa;
+      border-radius: 6px;
+    }
+
+    .toggle-item input[type="checkbox"] {
+      margin-right: 8px;
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+
+    .toggle-item label {
+      cursor: pointer;
+      font-size: 0.9rem;
+      user-select: none;
+    }
+
+    .toggle-item.disabled {
+      opacity: 0.5;
+    }
+
+    .status-section {
+      margin-top: 30px;
+      display: none;
+    }
+
+    .status-section.active {
+      display: block;
+    }
+
+    .status-header {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-left: 10px;
+    }
+
+    .status-processing {
+      background: #ffc107;
+      color: #000;
+    }
+
+    .status-completed {
+      background: #28a745;
+      color: white;
+    }
+
+    .status-partial {
+      background: #ff9800;
+      color: white;
+    }
+
+    .status-failed {
+      background: #dc3545;
+      color: white;
+    }
+
+    .status-expired {
+      background: #6c757d;
+      color: white;
+    }
+
+    .progress-files {
+      margin: 20px 0;
+    }
+
+    .file-progress {
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 10px;
+    }
+
+    .file-progress-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .file-name {
+      font-weight: 600;
+      color: #333;
+    }
+
+    .file-status {
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .file-status.waiting {
+      background: #e3f2fd;
+      color: #1976d2;
+    }
+
+    .file-status.processing {
+      background: #fff3e0;
+      color: #f57c00;
+    }
+
+    .file-status.done {
+      background: #e8f5e9;
+      color: #388e3c;
+    }
+
+    .file-status.failed {
+      background: #ffebee;
+      color: #d32f2f;
+    }
+
+    .download-actions {
+      margin-top: 20px;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 8px;
+    }
+
+    .download-btn {
+      display: inline-block;
+      margin: 5px;
+    }
+
+    .countdown {
+      margin-top: 15px;
+      padding: 15px;
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      border-radius: 8px;
+      text-align: center;
+      font-weight: 600;
+      color: #856404;
+    }
+
+    .alert {
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+
+    .alert-error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+
+    .alert-success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    .loader {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      vertical-align: middle;
+      margin-left: 10px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .history-section {
+      margin-top: 20px;
+    }
+
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .history-item {
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 20px;
+      transition: all 0.3s ease;
+    }
+
+    .history-item:hover {
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .history-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .history-job-id {
+      font-weight: 700;
+      color: #333;
+      font-size: 1rem;
+    }
+
+    .history-info {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #f0f0f0;
+    }
+
+    .history-info-item {
+      font-size: 0.85rem;
+      color: #666;
+    }
+
+    .history-info-item strong {
+      color: #333;
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    .history-actions {
+      margin-top: 15px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn-small {
+      padding: 6px 16px;
+      font-size: 0.85rem;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #999;
+    }
+
+    .empty-state-icon {
+      font-size: 4rem;
+      margin-bottom: 20px;
+      opacity: 0.5;
+    }
+
+    @media (max-width: 768px) {
+      .header h1 {
+        font-size: 1.5rem;
+      }
+
+      .content {
+        padding: 20px;
+      }
+
+      .toggle-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .nav-tabs {
+        overflow-x: auto;
+      }
+
+      .nav-tab {
+        padding: 10px 16px;
+        font-size: 0.9rem;
+        white-space: nowrap;
+      }
+
+      .history-info {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎬 MetaVid Randomizer</h1>
+      <p>Proses video dengan metadata dan karakteristik file yang berbeda</p>
+    </div>
+
+    <div class="content">
+      <div id="alertContainer"></div>
+
+      <!-- Navigation Tabs -->
+      <div class="nav-tabs">
+        <button class="nav-tab active" onclick="switchTab('upload')">
+          📤 Upload & Proses
+        </button>
+        <button class="nav-tab" onclick="switchTab('history')">
+          📜 History
+        </button>
+      </div>
+
+      <!-- Upload Tab -->
+      <div id="uploadTab" class="tab-content active">
+
+      <!-- Upload Section -->
+      <div class="upload-section" id="uploadArea">
+        <div class="upload-icon">📹</div>
+        <h2>Upload Video</h2>
+        <p style="margin: 15px 0; color: #666;">
+          Pilih atau drag & drop video Anda di sini
+        </p>
+        <input type="file" id="fileInput" class="file-input" accept="video/*" multiple>
+        <button class="btn" onclick="document.getElementById('fileInput').click()">
+          Pilih Video
+        </button>
+        <p style="margin-top: 15px; font-size: 0.85rem; color: #999;">
+          Maksimal 20 file, 500MB per file<br>
+          Format: MP4, MOV, MKV, AVI, WebM, FLV, WMV
+        </p>
+        <div id="selectedFiles" class="selected-files"></div>
+      </div>
+
+      <!-- Uniqueness Engine Toggles -->
+      <div class="toggle-section">
+        <h3>⚙️ Uniqueness Engine</h3>
+        <div class="toggle-grid">
+          <div class="toggle-item">
+            <input type="checkbox" id="toggle_randomAuthor" checked>
+            <label for="toggle_randomAuthor">Random Author</label>
+          </div>
+          <div class="toggle-item">
+            <input type="checkbox" id="toggle_hiddenTags" checked>
+            <label for="toggle_hiddenTags">Hidden Tags</label>
+          </div>
+          <div class="toggle-item">
+            <input type="checkbox" id="toggle_titleSpin" checked>
+            <label for="toggle_titleSpin">Title Spin</label>
+          </div>
+          <div class="toggle-item">
+            <input type="checkbox" id="toggle_shuffleDescription" checked>
+            <label for="toggle_shuffleDescription">Shuffle Description</label>
+          </div>
+          <div class="toggle-item">
+            <input type="checkbox" id="toggle_timestampShift" checked>
+            <label for="toggle_timestampShift">Timestamp Shift</label>
+          </div>
+          <div class="toggle-item">
+            <input type="checkbox" id="toggle_hashTrick" checked>
+            <label for="toggle_hashTrick">Hash Trick</label>
+          </div>
+          <div class="toggle-item">
+            <input type="checkbox" id="toggle_encodingJitter" checked>
+            <label for="toggle_encodingJitter">Encoding Jitter</label>
+          </div>
+          <div class="toggle-item">
+            <input type="checkbox" id="toggle_noiseInjection" checked>
+            <label for="toggle_noiseInjection">Noise Injection</label>
+          </div>
+          <div class="toggle-item">
+            <input type="checkbox" id="toggle_pixelShift" checked>
+            <label for="toggle_pixelShift">Pixel Shift</label>
+          </div>
+          <div class="toggle-item">
+            <input type="checkbox" id="toggle_audioPitch" checked>
+            <label for="toggle_audioPitch">Audio Pitch ±0.01</label>
+          </div>
+          <div class="toggle-item disabled">
+            <input type="checkbox" id="toggle_randomFilename" disabled>
+            <label for="toggle_randomFilename">Random Filename (OFF)</label>
+          </div>
+        </div>
+        <p style="margin-top: 15px; font-size: 0.85rem; color: #666;">
+          ℹ️ Output filename akan menggunakan nama asli + _new.mp4
+        </p>
+      </div>
+
+      <!-- Process Button -->
+      <div style="text-align: center; margin: 30px 0;">
+        <button class="btn" id="processBtn" onclick="processVideos()" disabled>
+          Proses Video
+        </button>
+      </div>
+
+      <!-- Status Section -->
+      <div class="status-section" id="statusSection">
+        <div class="status-header">
+          <h3>
+            Status Pemrosesan
+            <span class="status-badge status-processing" id="statusBadge">Processing</span>
+          </h3>
+          <p style="margin-top: 10px; color: #666;">
+            Job ID: <strong id="jobIdDisplay">-</strong>
+          </p>
+          <p style="margin-top: 5px; color: #666;">
+            Progress: <strong id="progressDisplay">0/0</strong>
+          </p>
+        </div>
+
+        <div class="progress-files" id="progressFiles"></div>
+
+        <div class="download-actions" id="downloadActions" style="display: none;">
+          <h4 style="margin-bottom: 15px;">📥 Download Hasil</h4>
+          <div id="downloadButtons"></div>
+          <div id="zipDownload" style="margin-top: 20px; display: none;">
+            <button class="btn btn-success" onclick="downloadZip()">
+              📦 Download All (ZIP)
+            </button>
+          </div>
+        </div>
+
+        <div class="countdown" id="countdown" style="display: none;">
+          ⏱️ File akan otomatis dihapus dalam: <span id="countdownTimer">60:00</span>
+        </div>
+      </div>
+      </div>
+      <!-- End Upload Tab -->
+
+      <!-- History Tab -->
+      <div id="historyTab" class="tab-content">
+        <div class="history-section">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3>📜 Riwayat Pemrosesan</h3>
+            <button class="btn btn-secondary btn-small" onclick="loadHistory()">
+              🔄 Refresh
+            </button>
+          </div>
+          <div id="historyList" class="history-list"></div>
+        </div>
+      </div>
+      <!-- End History Tab -->
+    </div>
+  </div>
+
+  <script>
+    let selectedFiles = [];
+    let currentJobId = null;
+    let pollingInterval = null;
+    let countdownInterval = null;
+    let currentTab = 'upload';
+
+    // File input handler
+    document.getElementById('fileInput').addEventListener('change', function(e) {
+      handleFiles(e.target.files);
+    });
+
+    // Drag and drop handlers
+    const uploadArea = document.getElementById('uploadArea');
+    
+    uploadArea.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      uploadArea.classList.add('dragover');
+    });
+
+    uploadArea.addEventListener('dragleave', function(e) {
+      e.preventDefault();
+      uploadArea.classList.remove('dragover');
+    });
+
+    uploadArea.addEventListener('drop', function(e) {
+      e.preventDefault();
+      uploadArea.classList.remove('dragover');
+      handleFiles(e.dataTransfer.files);
+    });
+
+    function handleFiles(files) {
+      selectedFiles = Array.from(files);
+      displaySelectedFiles();
+      document.getElementById('processBtn').disabled = selectedFiles.length === 0;
+    }
+
+    function displaySelectedFiles() {
+      const container = document.getElementById('selectedFiles');
+      
+      if (selectedFiles.length === 0) {
+        container.innerHTML = '';
+        return;
+      }
+
+      let html = '<h4 style="margin: 20px 0 10px 0;">File Terpilih:</h4>';
+      selectedFiles.forEach((file, index) => {
+        const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+        html += `
+          <div class="file-item">
+            <span>📹 ${file.name} (${sizeMB} MB)</span>
+            <button class="btn btn-secondary" onclick="removeFile(${index})" style="padding: 5px 15px; font-size: 0.85rem;">
+              ❌
+            </button>
+          </div>
+        `;
+      });
+      
+      container.innerHTML = html;
+    }
+
+    function removeFile(index) {
+      selectedFiles.splice(index, 1);
+      displaySelectedFiles();
+      document.getElementById('processBtn').disabled = selectedFiles.length === 0;
+    }
+
+    function showAlert(message, type = 'error') {
+      const container = document.getElementById('alertContainer');
+      const alertClass = type === 'error' ? 'alert-error' : 'alert-success';
+      container.innerHTML = `
+        <div class="alert ${alertClass}">
+          ${message}
+        </div>
+      `;
+      
+      setTimeout(() => {
+        container.innerHTML = '';
+      }, 5000);
+    }
+
+    async function processVideos() {
+      if (selectedFiles.length === 0) {
+        showAlert('Pilih video terlebih dahulu!');
+        return;
+      }
+
+      const processBtn = document.getElementById('processBtn');
+      processBtn.disabled = true;
+      processBtn.innerHTML = 'Mengupload...<span class="loader"></span>';
+
+      const formData = new FormData();
+      selectedFiles.forEach(file => {
+        formData.append('videos', file);
+      });
+
+      try {
+        const response = await fetch('/upload', {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          currentJobId = data.jobId;
+          showAlert(`Upload berhasil! ${data.total} video masuk queue.`, 'success');
+          
+          // Show status section
+          document.getElementById('statusSection').classList.add('active');
+          document.getElementById('jobIdDisplay').textContent = data.jobId;
+          
+          // Start polling
+          startPolling();
+          
+          // Reset upload area
+          selectedFiles = [];
+          document.getElementById('fileInput').value = '';
+          displaySelectedFiles();
+          
+        } else {
+          showAlert(data.error || 'Upload gagal!');
+          processBtn.disabled = false;
+          processBtn.innerHTML = 'Proses Video';
+        }
+
+      } catch (error) {
+        showAlert('Terjadi kesalahan: ' + error.message);
+        processBtn.disabled = false;
+        processBtn.innerHTML = 'Proses Video';
+      }
+    }
+
+    function startPolling() {
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+      }
+
+      pollingInterval = setInterval(() => {
+        updateStatus();
+      }, 3000);
+
+      updateStatus(); // First call immediately
+    }
+
+    async function updateStatus() {
+      if (!currentJobId) return;
+
+      try {
+        const response = await fetch(`/status/${currentJobId}`);
+        const data = await response.json();
+
+        if (!data.success) {
+          if (data.error && data.error.includes('expired')) {
+            showAlert('File sudah expired dan otomatis dihapus.');
+            stopPolling();
+            document.getElementById('statusBadge').textContent = 'Expired';
+            document.getElementById('statusBadge').className = 'status-badge status-expired';
+          }
+          return;
+        }
+
+        // Update status badge
+        const statusBadge = document.getElementById('statusBadge');
+        statusBadge.textContent = data.status.replace('_', ' ').toUpperCase();
+        statusBadge.className = 'status-badge';
+        
+        if (data.status === 'processing') {
+          statusBadge.classList.add('status-processing');
+        } else if (data.status === 'completed') {
+          statusBadge.classList.add('status-completed');
+        } else if (data.status === 'partial_success') {
+          statusBadge.classList.add('status-partial');
+        } else if (data.status === 'failed') {
+          statusBadge.classList.add('status-failed');
+        }
+
+        // Update progress
+        document.getElementById('progressDisplay').textContent = 
+          `${data.done}/${data.total} selesai${data.failed > 0 ? ` (${data.failed} gagal)` : ''}`;
+
+        // Update file list
+        displayFileProgress(data.files);
+
+        // Show download section if any file is done
+        if (data.done > 0) {
+          document.getElementById('downloadActions').style.display = 'block';
+          displayDownloadButtons(data.files);
+        }
+
+        // Show ZIP download if available
+        if (data.zipUrl) {
+          document.getElementById('zipDownload').style.display = 'block';
+        }
+
+        // Start countdown if job completed
+        if (data.completedAt && data.expiresAt) {
+          startCountdown(data.expiresAt);
+        }
+
+        // Stop polling if job finished
+        if (data.status !== 'processing') {
+          stopPolling();
+          document.getElementById('processBtn').disabled = false;
+          document.getElementById('processBtn').innerHTML = 'Proses Video';
+        }
+
+      } catch (error) {
+        console.error('Error fetching status:', error);
+      }
+    }
+
+    function displayFileProgress(files) {
+      const container = document.getElementById('progressFiles');
+      let html = '';
+
+      files.forEach(file => {
+        const statusClass = file.status;
+        const statusText = {
+          'waiting': 'Menunggu',
+          'processing': 'Memproses...',
+          'done': 'Selesai ✓',
+          'failed': 'Gagal ✗'
+        }[file.status] || file.status;
+
+        html += `
+          <div class="file-progress">
+            <div class="file-progress-header">
+              <span class="file-name">${file.originalName}</span>
+              <span class="file-status ${statusClass}">${statusText}</span>
+            </div>
+            ${file.status === 'done' ? `
+              <div>
+                <small style="color: #28a745;">→ ${file.outputName}</small>
+              </div>
+            ` : ''}
+            ${file.status === 'failed' && file.error ? `
+              <div>
+                <small style="color: #dc3545;">Error: ${file.error}</small>
+              </div>
+            ` : ''}
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    function displayDownloadButtons(files) {
+      const container = document.getElementById('downloadButtons');
+      let html = '';
+
+      files.forEach(file => {
+        if (file.status === 'done' && file.downloadUrl) {
+          html += `
+            <a href="${file.downloadUrl}" class="btn btn-success download-btn" download>
+              📥 ${file.outputName}
+            </a>
+          `;
+        }
+      });
+
+      container.innerHTML = html;
+    }
+
+    function downloadZip() {
+      if (currentJobId) {
+        window.location.href = `/download/${currentJobId}/zip`;
+      }
+    }
+
+    function stopPolling() {
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+        pollingInterval = null;
+      }
+    }
+
+    function startCountdown(expiresAt) {
+      const countdownEl = document.getElementById('countdown');
+      const timerEl = document.getElementById('countdownTimer');
+      
+      countdownEl.style.display = 'block';
+
+      if (countdownInterval) {
+        clearInterval(countdownInterval);
+      }
+
+      countdownInterval = setInterval(() => {
+        const now = new Date().getTime();
+        const expireTime = new Date(expiresAt).getTime();
+        const distance = expireTime - now;
+
+        if (distance < 0) {
+          clearInterval(countdownInterval);
+          timerEl.textContent = 'EXPIRED';
+          countdownEl.style.background = '#f8d7da';
+          countdownEl.style.borderColor = '#dc3545';
+          countdownEl.style.color = '#721c24';
+          return;
+        }
+
+        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+        timerEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      }, 1000);
+    }
+
+    // Tab switching
+    function switchTab(tab) {
+      currentTab = tab;
+      
+      // Update tab buttons
+      document.querySelectorAll('.nav-tab').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      event.target.classList.add('active');
+      
+      // Update tab content
+      document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+      });
+      
+      if (tab === 'upload') {
+        document.getElementById('uploadTab').classList.add('active');
+      } else if (tab === 'history') {
+        document.getElementById('historyTab').classList.add('active');
+        loadHistory();
+      }
+    }
+
+    // Load history
+    async function loadHistory() {
+      const historyList = document.getElementById('historyList');
+      historyList.innerHTML = '<div style="text-align: center; padding: 40px;"><div class="loader"></div></div>';
+
+      try {
+        const response = await fetch('/history');
+        const data = await response.json();
+
+        if (data.success && data.history.length > 0) {
+          displayHistory(data.history);
+        } else {
+          historyList.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-state-icon">📭</div>
+              <h3>Belum Ada Riwayat</h3>
+              <p>Upload dan proses video untuk melihat riwayat di sini</p>
+            </div>
+          `;
+        }
+      } catch (error) {
+        historyList.innerHTML = `
+          <div class="alert alert-error">
+            Error loading history: ${error.message}
+          </div>
+        `;
+      }
+    }
+
+    function displayHistory(history) {
+      const historyList = document.getElementById('historyList');
+      let html = '';
+
+      history.forEach(job => {
+        const createdDate = new Date(job.createdAt).toLocaleString('id-ID');
+        const statusClass = {
+          'processing': 'status-processing',
+          'completed': 'status-completed',
+          'partial_success': 'status-partial',
+          'failed': 'status-failed',
+          'expired': 'status-expired'
+        }[job.status] || '';
+
+        const statusText = {
+          'processing': 'Sedang Diproses',
+          'completed': 'Selesai',
+          'partial_success': 'Sebagian Berhasil',
+          'failed': 'Gagal',
+          'expired': 'Expired'
+        }[job.status] || job.status;
+
+        const isExpired = job.status === 'expired';
+        const canDownload = !isExpired && (job.status === 'completed' || job.status === 'partial_success');
+
+        html += `
+          <div class="history-item">
+            <div class="history-header">
+              <span class="history-job-id">🎬 ${job.jobId}</span>
+              <span class="status-badge ${statusClass}">${statusText}</span>
+            </div>
+            
+            <div class="history-info">
+              <div class="history-info-item">
+                <strong>📅 Waktu</strong>
+                ${createdDate}
+              </div>
+              <div class="history-info-item">
+                <strong>📊 Progress</strong>
+                ${job.done}/${job.total} selesai${job.failed > 0 ? ` (${job.failed} gagal)` : ''}
+              </div>
+              ${job.expiresAt && !isExpired ? `
+                <div class="history-info-item">
+                  <strong>⏰ Expired</strong>
+                  ${new Date(job.expiresAt).toLocaleString('id-ID')}
+                </div>
+              ` : ''}
+            </div>
+
+            ${canDownload ? `
+              <div class="history-actions">
+                <button class="btn btn-success btn-small" onclick="viewJobDetail('${job.jobId}')">
+                  👁️ Lihat Detail
+                </button>
+                ${job.hasZip ? `
+                  <a href="/download/${job.jobId}/zip" class="btn btn-success btn-small">
+                    📦 Download ZIP
+                  </a>
+                ` : ''}
+              </div>
+            ` : ''}
+            ${isExpired ? `
+              <div style="margin-top: 10px; padding: 10px; background: #f8d7da; border-radius: 6px; font-size: 0.85rem; color: #721c24;">
+                ⚠️ File sudah expired dan otomatis dihapus
+              </div>
+            ` : ''}
+          </div>
+        `;
+      });
+
+      historyList.innerHTML = html;
+    }
+
+    function viewJobDetail(jobId) {
+      currentJobId = jobId;
+      switchTab('upload');
+      
+      // Switch to upload tab
+      document.querySelectorAll('.nav-tab').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.nav-tab')[0].classList.add('active');
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+      document.getElementById('uploadTab').classList.add('active');
+      
+      // Show status section and update
+      document.getElementById('statusSection').classList.add('active');
+      document.getElementById('jobIdDisplay').textContent = jobId;
+      updateStatus();
+      
+      // Scroll to status section
+      document.getElementById('statusSection').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // Load history on page load
+    window.addEventListener('load', () => {
+      // Auto-load history if there's a stored jobId
+      const storedJobId = localStorage.getItem('lastJobId');
+      if (storedJobId) {
+        currentJobId = storedJobId;
+      }
+    });
+
+    // Save jobId to localStorage when created
+    const originalProcessVideos = processVideos;
+    processVideos = async function() {
+      await originalProcessVideos();
+      if (currentJobId) {
+        localStorage.setItem('lastJobId', currentJobId);
+      }
+    };
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+      stopPolling();
+      if (countdownInterval) {
+        clearInterval(countdownInterval);
+      }
+    });
+  </script>
+</body>
+</html>
