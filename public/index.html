@@ -444,6 +444,39 @@
       opacity: 0.5;
     }
 
+    /* History file list styles */
+    .history-files {
+      margin-top: 10px;
+      padding: 10px;
+      background: #f8f9fa;
+      border-radius: 6px;
+    }
+
+    .history-file-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px;
+      margin: 5px 0;
+      background: white;
+      border-radius: 4px;
+      border: 1px solid #e9ecef;
+    }
+
+    .history-file-info {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      flex: 1;
+    }
+
+    .history-file-name {
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: #333;
+      word-break: break-all;
+    }
+
     /* Progress bar styles */
     .progress-bar {
       width: 100%;
@@ -1047,7 +1080,45 @@
         }[job.status] || job.status;
 
         const isExpired = job.status === 'expired';
-        const canDownload = !isExpired && (job.status === 'completed' || job.status === 'partial_success');
+        const canDownload = !isExpired && (job.status === 'completed' || job.status === 'partial_success' || job.status === 'processing');
+
+        // Build file list with download buttons
+        let filesHtml = '';
+        if (job.files && job.files.length > 0) {
+          filesHtml = '<div class="history-files"><h4 style="margin: 15px 0 10px 0; font-size: 0.95rem;">📁 File:</h4>';
+
+          job.files.forEach(file => {
+            const fileStatusIcon = {
+              'waiting': '⏳',
+              'processing': '🔄',
+              'done': '✅',
+              'failed': '❌'
+            }[file.status] || '📄';
+
+            const fileStatusLabel = {
+              'waiting': 'Menunggu',
+              'processing': 'Memproses',
+              'done': 'Selesai',
+              'failed': 'Gagal'
+            }[file.status] || file.status;
+
+            filesHtml += `
+              <div class="history-file-item">
+                <div class="history-file-info">
+                  <span class="history-file-name">${fileStatusIcon} ${file.originalName}</span>
+                  ${file.status === 'done' ? `<span style="font-size: 0.8rem; color: #28a745;">→ ${file.outputName}</span>` : ''}
+                  <span class="file-status ${file.status}" style="margin-left: 8px;">${fileStatusLabel}</span>
+                </div>
+                ${file.status === 'done' && file.downloadUrl ? `
+                  <a href="${file.downloadUrl}" class="btn btn-success btn-small" download style="margin-top: 5px;">
+                    📥 Download
+                  </a>
+                ` : ''}
+              </div>
+            `;
+          });
+          filesHtml += '</div>';
+        }
 
         html += `
           <div class="history-item">
@@ -1073,18 +1144,18 @@
               ` : ''}
             </div>
 
-            ${canDownload ? `
-              <div class="history-actions">
-                <button class="btn btn-success btn-small" onclick="viewJobDetail('${job.jobId}')">
-                  👁️ Lihat Detail
-                </button>
+            ${filesHtml}
+
+            <div class="history-actions" style="margin-top: 15px;">
+              ${canDownload ? `
                 ${job.hasZip ? `
                   <a href="/download/${job.jobId}/zip" class="btn btn-success btn-small">
-                    📦 Download ZIP
+                    📦 Download All ZIP
                   </a>
                 ` : ''}
-              </div>
-            ` : ''}
+              ` : ''}
+            </div>
+            
             ${isExpired ? `
               <div style="margin-top: 10px; padding: 10px; background: #f8d7da; border-radius: 6px; font-size: 0.85rem; color: #721c24;">
                 ⚠️ File sudah expired dan otomatis dihapus
@@ -1099,7 +1170,7 @@
 
     function viewJobDetail(jobId) {
       currentJobId = jobId;
-      switchTab('upload');
+      currentTab = 'upload';
       
       // Switch to upload tab
       document.querySelectorAll('.nav-tab').forEach(btn => btn.classList.remove('active'));
