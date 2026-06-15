@@ -18,6 +18,7 @@ const QUEUE_CONCURRENCY = parseInt(process.env.QUEUE_CONCURRENCY) || 1;
 
 // In-memory job storage
 const jobs = new Map();
+const fileProgress = new Map(); // Track progress for each file
 
 // Queue system
 class VideoQueue {
@@ -65,7 +66,12 @@ const storage = multer.diskStorage({
     cb(null, uploadPath);
   },
   filename: (req, file, cb) => {
-    cb(null, file.originalname);
+    // Sanitize filename to prevent issues
+    const sanitized = file.originalname
+      .replace(/[<>:"/\\|?*\x00-\x1f]/g, '_') // Remove invalid chars
+      .replace(/\s+/g, '_') // Replace spaces with underscore
+      .replace(/_+/g, '_'); // Remove duplicate underscores
+    cb(null, sanitized);
   }
 });
 
@@ -110,24 +116,20 @@ function shuffleArray(array) {
 
 function generateRandomMetadata() {
   const authors = [
-    'Nova Media', 'Frame Studio', 'Motion Lab', 'Digital Wave',
-    'Creative Edge', 'Visual Arts', 'Media Pro', 'Content Master',
-    'Pixel Factory', 'Stream Creator', 'Video Forge', 'Edit Zone'
+    'Nova_Media', 'Frame_Studio', 'Motion_Lab', 'Digital_Wave',
+    'Creative_Edge', 'Visual_Arts', 'Media_Pro', 'Content_Master',
+    'Pixel_Factory', 'Stream_Creator', 'Video_Forge', 'Edit_Zone'
   ];
 
-  const titleTemplates = [
-    '{Amazing|Creative|Fresh|Stunning|Premium} {Video|Clip|Media|Content}',
-    '{High Quality|Professional|Enhanced|Optimized} {Export|Output|Result}',
-    '{Perfect|Beautiful|Excellent|Outstanding} {Production|Creation|Work}'
+  const titles = [
+    'Amazing_Video', 'Creative_Clip', 'Fresh_Media', 'Stunning_Content',
+    'High_Quality', 'Professional', 'Enhanced_Result', 'Premium_Quality',
+    'Outstanding_Media', 'Best_Video', 'Awesome_Output', 'Superb_Export'
   ];
 
   const descriptions = [
-    'High quality export.',
-    'Optimized for sharing.',
-    'Enhanced media output.',
-    'Professional grade content.',
-    'Premium quality result.',
-    'Carefully processed video.'
+    'high_quality_export', 'optimized_for_sharing', 'enhanced_media',
+    'professional_content', 'premium_result', 'carefully_processed'
   ];
 
   const keywords = [
@@ -135,45 +137,93 @@ function generateRandomMetadata() {
     'production', 'creative', 'premium', 'quality', 'enhanced'
   ];
 
-  // Generate title from template
-  const template = getRandomElement(titleTemplates);
-  const titleParts = template.split(/[{}|]/);
-  let title = '';
-  for (let i = 0; i < titleParts.length; i++) {
-    if (titleParts[i].includes('|')) {
-      const options = titleParts[i].split('|');
-      title += getRandomElement(options);
-    } else {
-      title += titleParts[i];
-    }
-  }
-
-  // Shuffle descriptions
+  const title = getRandomElement(titles);
   const shuffledDesc = shuffleArray(descriptions).slice(0, 3).join(' ');
 
-  // Random timestamp shift (±10 seconds)
   const now = new Date();
   const shift = Math.floor(Math.random() * 20) - 10;
   const shiftedTime = new Date(now.getTime() + shift * 1000);
-  
-  // Format creation_time to RFC3339 format (required by FFmpeg)
   const creationTime = shiftedTime.toISOString().replace(/\.\d{3}Z$/, 'Z');
-
-  // Random keywords
-  const selectedKeywords = shuffleArray(keywords).slice(0, 5).join(',');
+  const selectedKeywords = shuffleArray(keywords).slice(0, 5).join(' ');
 
   return {
     artist: getRandomElement(authors),
     author: getRandomElement(authors),
-    title: title.trim(),
+    title: title,
     description: shuffledDesc,
-    comment: `randomized_export_${Math.random().toString(36).substring(2, 12)}`,
-    encoder: `metavid_engine_${Math.random().toString(36).substring(2, 8)}`,
+    comment: `randomized_${Math.random().toString(36).substring(2, 12)}`,
+    encoder: `metavid_${Math.random().toString(36).substring(2, 8)}`,
     publisher: getRandomElement(authors),
     keywords: selectedKeywords,
     creation_time: creationTime,
     date: shiftedTime.toISOString().split('T')[0]
   };
+}
+
+async function processVideoWithProgress(jobId, fileInfo, inputPath, outputPath) {
+  return new Promise((resolve, reject) => {
+    const metadata = generateRandomMetadata();
+    const progressKey = `${jobId}_${fileInfo.originalName}`;
+    
+    // Audio pitch: ±0.01 (very subtle)
+    const pitchFactor = 1 + (Math.random() * 0.02 - 0.01);
+    const tempoFactor = 1 / pitchFactor;
+    
+    const audioBitrates = ['128k', '160k', '192k'];
+    const audioBitrate = getRandomElement(audioBitrates);
+    
+    const crfValues = [22, 23, 24];
+    const crf = getRandomElement(crfValues);
+    
+    let command = ffmpeg(inputPath)
+      .outputOptions(['-y'])
+      .outputOptions(['-map_metadata', '-1'])
+      .videoFilters(['noise=alls=1:allf=t+u', 'crop=iw-2:ih-2:1:1', 'scale=iw:ih'])
+      .audioFilters([`asetrate=44100*${pitchFactor.toFixed(4)}`, 'aresample=44100', `atempo=${tempoFactor.toFixed(4)}`])
+      .videoCodec('libx264')
+      .outputOptions(['-crf', crf.toString()])
+      .outputOptions(['-preset', 'veryfast'])
+      .audioCodec('aac')
+      .audioBitrate(audioBitrate)
+      .outputOptions([
+        '-metadata', `title=${metadata.title}`,
+        '-metadata', `artist=${metadata.artist}`,
+        '-metadata', `author=${metadata.author}`,
+        '-metadata', `comment=${metadata.comment}`,
+        '-metadata', `description=${metadata.description}`,
+        '-metadata', `encoder=${metadata.encoder}`,
+        '-metadata', `publisher=${metadata.publisher}`,
+        '-metadata', `keywords=${metadata.keywords}`,
+        '-metadata', `creation_time=${metadata.creation_time}`,
+        '-metadata', `date=${metadata.date}`
+      ])
+      .output(outputPath);
+
+    command
+      .on('start', (commandLine) => {
+        console.log('FFmpeg command:', commandLine);
+      })
+      .on('progress', (progress) => {
+        if (progress.percent) {
+          const percent = progress.percent.toFixed(1);
+          console.log(`Processing ${fileInfo.originalName}: ${percent}%`);
+          // Update in-memory progress
+          fileProgress.set(progressKey, percent);
+        }
+      })
+      .on('end', () => {
+        console.log('Processing finished successfully');
+        fileProgress.delete(progressKey);
+        resolve();
+      })
+      .on('error', (err, stdout, stderr) => {
+        console.error('FFmpeg error:', err.message);
+        fileProgress.delete(progressKey);
+        if (stderr) console.error('FFmpeg stderr:', stderr);
+        reject(err);
+      })
+      .run();
+  });
 }
 
 async function processVideo(inputPath, outputPath, options = {}) {
@@ -192,46 +242,43 @@ async function processVideo(inputPath, outputPath, options = {}) {
     const crfValues = [22, 23, 24];
     const crf = getRandomElement(crfValues);
     
-    // Escape metadata values to prevent FFmpeg errors
-    const escapeMetadata = (value) => {
-      if (!value) return '';
-      return value
-        .replace(/\\/g, '\\\\')
-        .replace(/"/g, '\\"')
-        .replace(/'/g, "\\'")
-        .replace(/:/g, '\\:')
-        .replace(/=/g, '\\=');
-    };
-    
     let command = ffmpeg(inputPath)
+      .outputOptions(['-y'])
+      .outputOptions(['-map_metadata', '-1'])
+      
+      // Video filters: noise + pixel shift
+      .videoFilters([
+        'noise=alls=1:allf=t+u',
+        'crop=iw-2:ih-2:1:1',
+        'scale=iw:ih'
+      ])
+      
+      // Audio filters: pitch shift
+      .audioFilters([
+        `asetrate=44100*${pitchFactor.toFixed(4)}`,
+        'aresample=44100',
+        `atempo=${tempoFactor.toFixed(4)}`
+      ])
+      
+      // Video codec
+      .videoCodec('libx264')
+      .outputOptions(['-crf', crf.toString()])
+      .outputOptions(['-preset', 'veryfast'])
+      
+      // Audio codec
+      .audioCodec('aac')
+      .audioBitrate(audioBitrate)
+      
+      // Add metadata using proper API
       .outputOptions([
-        '-y',
-        '-map_metadata', '-1', // Remove old metadata
-        
-        // Video filters: noise + pixel shift
-        '-vf', 'noise=alls=1:allf=t+u,crop=iw-2:ih-2:1:1,scale=iw:ih',
-        
-        // Audio filters: pitch shift
-        `-af`, `asetrate=44100*${pitchFactor.toFixed(4)},aresample=44100,atempo=${tempoFactor.toFixed(4)}`,
-        
-        // Video encoding
-        '-c:v', 'libx264',
-        '-crf', crf.toString(),
-        '-preset', 'veryfast',
-        
-        // Audio encoding
-        '-c:a', 'aac',
-        '-b:a', audioBitrate,
-        
-        // Metadata - escaped properly
-        '-metadata', `title=${escapeMetadata(metadata.title)}`,
-        '-metadata', `artist=${escapeMetadata(metadata.artist)}`,
-        '-metadata', `author=${escapeMetadata(metadata.author)}`,
-        '-metadata', `comment=${escapeMetadata(metadata.comment)}`,
-        '-metadata', `description=${escapeMetadata(metadata.description)}`,
-        '-metadata', `encoder=${escapeMetadata(metadata.encoder)}`,
-        '-metadata', `publisher=${escapeMetadata(metadata.publisher)}`,
-        '-metadata', `keywords=${escapeMetadata(metadata.keywords)}`,
+        '-metadata', `title=${metadata.title}`,
+        '-metadata', `artist=${metadata.artist}`,
+        '-metadata', `author=${metadata.author}`,
+        '-metadata', `comment=${metadata.comment}`,
+        '-metadata', `description=${metadata.description}`,
+        '-metadata', `encoder=${metadata.encoder}`,
+        '-metadata', `publisher=${metadata.publisher}`,
+        '-metadata', `keywords=${metadata.keywords}`,
         '-metadata', `creation_time=${metadata.creation_time}`,
         '-metadata', `date=${metadata.date}`
       ])
@@ -252,7 +299,7 @@ async function processVideo(inputPath, outputPath, options = {}) {
       })
       .on('error', (err, stdout, stderr) => {
         console.error('FFmpeg error:', err.message);
-        console.error('FFmpeg stderr:', stderr);
+        if (stderr) console.error('FFmpeg stderr:', stderr);
         reject(err);
       })
       .run();
@@ -267,14 +314,14 @@ async function processFileInQueue(jobId, fileInfo) {
   fileInfo.status = 'processing';
 
   try {
-    const inputPath = path.join(__dirname, 'uploads', jobId, fileInfo.originalName);
+    const inputPath = path.join(__dirname, 'uploads', jobId, fileInfo.uploadedName);
     const outputDir = path.join(__dirname, 'outputs', jobId);
     await fs.mkdir(outputDir, { recursive: true });
     
     const outputPath = path.join(outputDir, fileInfo.outputName);
 
     // Process video with FFmpeg
-    await processVideo(inputPath, outputPath);
+    await processVideoWithProgress(jobId, fileInfo, inputPath, outputPath);
 
     // Update file status
     fileInfo.status = 'done';
@@ -418,10 +465,17 @@ app.post('/upload', upload.array('videos', MAX_UPLOAD_FILES), async (req, res) =
       expiresAt: null,
       ttlMinutes: AUTO_DELETE_MINUTES,
       files: files.map(file => {
-        const nameWithoutExt = path.parse(file.originalname).name;
+        // Get original name without extension
+        const originalNameWithoutExt = path.parse(file.originalname).name;
+        // Get sanitized filename (what's actually saved)
+        const sanitizedName = file.filename;
+        const sanitizedNameWithoutExt = path.parse(sanitizedName).name;
+        
         return {
           originalName: file.originalname,
-          outputName: `${nameWithoutExt}_new.mp4`,
+          uploadedName: sanitizedName,
+          outputName: `${sanitizedNameWithoutExt}_new.mp4`,
+          displayName: `${originalNameWithoutExt}_new.mp4`, // For display in UI
           status: 'waiting',
           downloadUrl: null
         };
@@ -472,6 +526,17 @@ app.get('/status/:jobId', (req, res) => {
   res.json({
     success: true,
     ...job
+  });
+});
+
+app.get('/progress/:jobId/:fileName', (req, res) => {
+  const { jobId, fileName } = req.params;
+  const progressKey = `${jobId}_${fileName}`;
+  const progress = fileProgress.get(progressKey);
+  
+  res.json({
+    success: true,
+    progress: progress || 0
   });
 });
 
