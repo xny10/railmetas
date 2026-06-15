@@ -444,6 +444,27 @@
       opacity: 0.5;
     }
 
+    /* Progress bar styles */
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      border-radius: 4px;
+      margin-top: 10px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.3s ease;
+    }
+
+    @keyframes progress {
+      0% { width: 40%; opacity: 0.6; }
+      50% { width: 70%; opacity: 0.9; }
+      100% { width: 40%; opacity: 0.6; }
+    }
+
     @media (max-width: 768px) {
       .header h1 {
         font-size: 1.5rem;
@@ -850,19 +871,29 @@
           'failed': 'Gagal ✗'
         }[file.status] || file.status;
 
+        // Get progress from server for accurate progress bar
+        const progressBar = file.status === 'processing' 
+          ? `<div class="progress-bar" style="background: #e0e0e0;">
+               <div class="progress-fill" id="progress-${file.originalName}" style="width: 0%; background: #f57c00; animation: progress 2s infinite;"></div>
+             </div>`
+          : `<div class="progress-bar" style="background: #e0e0e0;">
+               <div class="progress-fill" style="width: ${file.status === 'done' ? 100 : 0}%; background: ${file.status === 'done' ? '#28a745' : '#dc3545'};"></div>
+             </div>`;
+
         html += `
-          <div class="file-progress">
+          <div class="file-progress" data-file="${file.originalName}">
             <div class="file-progress-header">
               <span class="file-name">${file.originalName}</span>
               <span class="file-status ${statusClass}">${statusText}</span>
             </div>
+            ${progressBar}
             ${file.status === 'done' ? `
-              <div>
+              <div style="margin-top: 10px;">
                 <small style="color: #28a745;">→ ${file.outputName}</small>
               </div>
             ` : ''}
             ${file.status === 'failed' && file.error ? `
-              <div>
+              <div style="margin-top: 10px;">
                 <small style="color: #dc3545;">Error: ${file.error}</small>
               </div>
             ` : ''}
@@ -871,6 +902,13 @@
       });
 
       container.innerHTML = html;
+      
+      // Start progress polling for processing files
+      if (files.some(f => f.status === 'processing') && pollingInterval) {
+        pollingInterval = setInterval(() => {
+          updateStatus();
+        }, 3000);
+      }
     }
 
     function displayDownloadButtons(files) {
