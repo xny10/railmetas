@@ -155,6 +155,9 @@ function generateRandomMetadata() {
   const now = new Date();
   const shift = Math.floor(Math.random() * 20) - 10;
   const shiftedTime = new Date(now.getTime() + shift * 1000);
+  
+  // Format creation_time to RFC3339 format (required by FFmpeg)
+  const creationTime = shiftedTime.toISOString().replace(/\.\d{3}Z$/, 'Z');
 
   // Random keywords
   const selectedKeywords = shuffleArray(keywords).slice(0, 5).join(',');
@@ -168,7 +171,7 @@ function generateRandomMetadata() {
     encoder: `metavid_engine_${Math.random().toString(36).substring(2, 8)}`,
     publisher: getRandomElement(authors),
     keywords: selectedKeywords,
-    creation_time: shiftedTime.toISOString(),
+    creation_time: creationTime,
     date: shiftedTime.toISOString().split('T')[0]
   };
 }
@@ -177,7 +180,7 @@ async function processVideo(inputPath, outputPath, options = {}) {
   return new Promise((resolve, reject) => {
     const metadata = generateRandomMetadata();
     
-    // Audio pitch: ±0.01
+    // Audio pitch: ±0.01 (very subtle)
     const pitchFactor = 1 + (Math.random() * 0.02 - 0.01); // 0.99 to 1.01
     const tempoFactor = 1 / pitchFactor;
     
@@ -188,6 +191,17 @@ async function processVideo(inputPath, outputPath, options = {}) {
     // Video CRF jitter
     const crfValues = [22, 23, 24];
     const crf = getRandomElement(crfValues);
+    
+    // Escape metadata values to prevent FFmpeg errors
+    const escapeMetadata = (value) => {
+      if (!value) return '';
+      return value
+        .replace(/\\/g, '\\\\')
+        .replace(/"/g, '\\"')
+        .replace(/'/g, "\\'")
+        .replace(/:/g, '\\:')
+        .replace(/=/g, '\\=');
+    };
     
     let command = ffmpeg(inputPath)
       .outputOptions([
@@ -209,15 +223,15 @@ async function processVideo(inputPath, outputPath, options = {}) {
         '-c:a', 'aac',
         '-b:a', audioBitrate,
         
-        // Metadata
-        '-metadata', `title=${metadata.title}`,
-        '-metadata', `artist=${metadata.artist}`,
-        '-metadata', `author=${metadata.author}`,
-        '-metadata', `comment=${metadata.comment}`,
-        '-metadata', `description=${metadata.description}`,
-        '-metadata', `encoder=${metadata.encoder}`,
-        '-metadata', `publisher=${metadata.publisher}`,
-        '-metadata', `keywords=${metadata.keywords}`,
+        // Metadata - escaped properly
+        '-metadata', `title=${escapeMetadata(metadata.title)}`,
+        '-metadata', `artist=${escapeMetadata(metadata.artist)}`,
+        '-metadata', `author=${escapeMetadata(metadata.author)}`,
+        '-metadata', `comment=${escapeMetadata(metadata.comment)}`,
+        '-metadata', `description=${escapeMetadata(metadata.description)}`,
+        '-metadata', `encoder=${escapeMetadata(metadata.encoder)}`,
+        '-metadata', `publisher=${escapeMetadata(metadata.publisher)}`,
+        '-metadata', `keywords=${escapeMetadata(metadata.keywords)}`,
         '-metadata', `creation_time=${metadata.creation_time}`,
         '-metadata', `date=${metadata.date}`
       ])
@@ -236,8 +250,9 @@ async function processVideo(inputPath, outputPath, options = {}) {
         console.log('Processing finished successfully');
         resolve();
       })
-      .on('error', (err) => {
-        console.error('FFmpeg error:', err);
+      .on('error', (err, stdout, stderr) => {
+        console.error('FFmpeg error:', err.message);
+        console.error('FFmpeg stderr:', stderr);
         reject(err);
       })
       .run();
