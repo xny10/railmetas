@@ -553,7 +553,14 @@ app.get('/history', (req, res) => {
       createdAt: job.createdAt,
       completedAt: job.completedAt,
       expiresAt: job.expiresAt,
-      hasZip: !!job.zipUrl
+      hasZip: !!job.zipUrl,
+      ttlMinutes: job.ttlMinutes,
+      files: job.files.map(f => ({
+        originalName: f.originalName,
+        outputName: f.outputName,
+        status: f.status,
+        downloadUrl: f.downloadUrl
+      }))
     }));
 
   res.json({
